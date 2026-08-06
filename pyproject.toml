@@ -7,7 +7,7 @@ name = "dataseries"
 version = "1.0.0"
 description = "Download open Swiss economic time series from dataseries.org into pandas"
 readme = "README.md"
-license = "GPL-3.0-or-later"
+license = "MIT"
 authors = [{ name = "Christoph Sax", email = "christoph.sax@gmail.com" }]
 requires-python = ">=3.9"
 dependencies = ["pandas>=1.3"]

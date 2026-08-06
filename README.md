@@ -108,6 +108,6 @@ Self-hosting or testing against a mirror? Point the package elsewhere with the
 
 ## License
 
-GPL-3.0-or-later. The data itself is published by the Swiss data providers
+MIT. The data itself is published by the Swiss data providers
 under their respective terms; see the `license` column in `ds_catalog()` and
 the source links in `ds_meta()`.
