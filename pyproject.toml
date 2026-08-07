@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dataseries"
-version = "1.0.0rc1"
+version = "1.0.0"
 description = "Download open Swiss economic time series from dataseries.org into pandas"
 readme = "README.md"
 license = "MIT"
