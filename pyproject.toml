@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dataseries"
-version = "1.0.0"
+version = "1.0.0rc1"
 description = "Download open Swiss economic time series from dataseries.org into pandas"
 readme = "README.md"
 license = "MIT"
@@ -28,7 +28,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://dataseries.org"
-Documentation = "https://dataseries.org/py/"
+Documentation = "https://github.com/cynkra/dataseries-py#readme"
 Repository = "https://github.com/cynkra/dataseries-py"
 Issues = "https://github.com/cynkra/dataseries-py/issues"
 
