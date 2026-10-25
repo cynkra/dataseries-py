@@ -76,9 +76,38 @@ class TestDs:
         assert w.loc["2020-01-01", "NA.A"] == 1.5
         assert pd.isna(w.loc["2020-04-01", "NA.A"])
 
-    def test_api_error_csv_raises(self, fake_api):
-        with pytest.raises(ValueError, match="unknown dataset"):
+    def test_unknown_dataset(self, fake_api):
+        with pytest.raises(ValueError, match=r"unknown dataset 'nope'; see ds_catalog\(\)"):
             ds("nope")
+
+    def test_unknown_dimension(self, fake_api):
+        with pytest.raises(ValueError, match='unknown dimension "nope".*Valid dimensions: item'):
+            ds("ch_fso_cpi", nope="1")
+
+    def test_unknown_code(self, fake_api):
+        with pytest.raises(ValueError, match='unknown code "nope" for dimension "item"') as e:
+            ds("ch_fso_cpi", item="nope")
+        assert len(str(e.value)) < 300  # long code list is cut
+        assert "ds_meta('ch_fso_cpi')" in str(e.value)
+
+    def test_server_error_is_connection_error(self, fake_api):
+        with pytest.raises(ConnectionError, match="could not reach"):
+            ds("ch_down")
+
+    def test_network_failure_is_connection_error(self, monkeypatch):
+        import urllib.error
+        import urllib.request
+
+        def boom(req, timeout=None):
+            raise urllib.error.URLError("offline")
+
+        monkeypatch.setattr(urllib.request, "urlopen", boom)
+        dsm.cache_clear()
+        with pytest.raises(ConnectionError, match="could not reach"):
+            ds("ch_fso_cpi")
+
+    def test_empty_selection_is_none(self, fake_api):
+        assert ds("ch_fso_cpi", start="2099-01-01") is None
 
     def test_bad_dataset_type(self):
         with pytest.raises(TypeError):
@@ -153,7 +182,7 @@ class TestMeta:
         assert "real" in m["dimensions"]["type"]["levels"]
 
     def test_unknown_dataset(self, fake_api):
-        with pytest.raises(ValueError, match="unknown dataset"):
+        with pytest.raises(ValueError, match=r"unknown dataset 'nope'; see ds_catalog\(\)"):
             ds_meta("nope")
 
 

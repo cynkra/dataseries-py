@@ -23,6 +23,16 @@ def _build_dims(dims: dict) -> str:
     return ";".join(parts)
 
 
+def _api_error(msg: str, dataset: str) -> ValueError:
+    """Turn an API error message into a user-facing ValueError."""
+    if "unknown dataset" in msg:
+        return ValueError(f"unknown dataset {dataset!r}; see ds_catalog()")
+    if len(msg) > 200:
+        # "Valid codes: ..." can list hundreds of codes.
+        msg = msg[:200].rstrip(", ") + f" ...; see ds_meta({dataset!r})"
+    return ValueError(msg)
+
+
 def ds(
     dataset: str,
     dims: Optional[dict] = None,
@@ -112,13 +122,15 @@ def ds(
     if end is not None:
         qs.append(f"to={end}")
 
-    df = _api.get_csv("/series.csv?" + "&".join(qs))
+    try:
+        df = _api.get_csv("/series.csv?" + "&".join(qs))
+    except ValueError as err:
+        # 4xx answers: unknown dataset, dimension or code, malformed request.
+        raise _api_error(str(err), dataset) from None
 
-    # The API answers an unknown/empty dataset with a one-column "error" CSV.
+    # Also accept an error reported as a one-column "error" CSV with status 200.
     if "error" in df.columns and "value" not in df.columns:
-        raise ValueError(
-            f"dataseries.org API: {df['error'].iloc[0]} (dataset {dataset!r})"
-        )
+        raise _api_error(str(df["error"].iloc[0]), dataset)
     if not {"date", "value"}.issubset(df.columns):
         raise ValueError(f"unexpected response for dataset {dataset!r}")
     if df.empty:
@@ -283,9 +295,10 @@ def ds_meta(dataset: str) -> dict:
     """
     if not isinstance(dataset, str) or not dataset:
         raise TypeError("dataset must be a non-empty string")
-    m = _api.get_json(f"/dataset/{quote(dataset, safe='')}/meta")
+    try:
+        m = _api.get_json(f"/dataset/{quote(dataset, safe='')}/meta")
+    except ValueError as err:
+        raise _api_error(str(err), dataset) from None
     if isinstance(m, dict) and m.get("error"):
-        raise ValueError(
-            f"unknown dataset: {dataset!r}. See ds_catalog() for valid ids."
-        )
+        raise _api_error(str(m["error"]), dataset)
     return m
