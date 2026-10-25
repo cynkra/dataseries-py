@@ -56,15 +56,22 @@ def get_csv(path: str, cache: bool = True):
     """GET a /series.csv path and read it as a pandas DataFrame.
 
     All columns are read as strings (dimension codes such as ``"100_100"``
-    must not be coerced to numbers); ``date`` and ``value`` are converted by
-    the caller.
+    must not be coerced to numbers) and no default NA markers are applied,
+    so codes like ``"NA"`` or ``"null"`` stay verbatim. Only an empty
+    ``value`` field is missing. ``date`` and ``value`` are converted by the
+    caller.
     """
     import pandas as pd
 
     key = "csv:" + path
     if cache and key in _cache:
         return _cache[key].copy()
-    out = pd.read_csv(io.StringIO(_fetch(path)), dtype=str)
+    out = pd.read_csv(
+        io.StringIO(_fetch(path)),
+        dtype=str,
+        keep_default_na=False,
+        na_values={"value": [""]},
+    )
     if cache:
         _cache[key] = out
     return out.copy()

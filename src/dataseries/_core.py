@@ -15,8 +15,8 @@ def _build_dims(dims: dict) -> str:
     """Build the dims grammar string ("item=100_100,100_1;type=real")."""
     parts = []
     for name, value in dims.items():
-        if isinstance(value, str):
-            codes = [value]
+        if isinstance(value, str) or not hasattr(value, "__iter__"):
+            codes = [str(value)]
         else:
             codes = [str(v) for v in value]
         parts.append(f"{name}={','.join(codes)}")

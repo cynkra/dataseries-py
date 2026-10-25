@@ -42,3 +42,11 @@ def test_meta_live():
 def test_search_live():
     hits = ds_search("unemployment")
     assert len(hits) > 0
+
+
+def test_na_code_live():
+    # "NA" is a real dimension code (net acquisition of financial assets).
+    df = ds("ch_snb_bopcapbalq", D0="NA", D1="A")
+    assert (df["D0"] == "NA").all()
+    w = ds("ch_snb_bopcapbalq", D0=["NA", "S"], wide=True)
+    assert any(c.startswith("NA.") for c in w.columns)
