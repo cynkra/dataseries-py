@@ -50,3 +50,14 @@ def test_na_code_live():
     assert (df["D0"] == "NA").all()
     w = ds("ch_snb_bopcapbalq", D0=["NA", "S"], wide=True)
     assert any(c.startswith("NA.") for c in w.columns)
+
+
+def test_errors_live():
+    with pytest.raises(ValueError, match=r"unknown dataset 'ch_nope'; see ds_catalog\(\)"):
+        ds("ch_nope")
+    with pytest.raises(ValueError, match=r"unknown dataset 'ch_nope'"):
+        ds_meta("ch_nope")
+    with pytest.raises(ValueError, match="unknown dimension"):
+        ds("ch_fso_cpi", nope="1")
+    with pytest.raises(ValueError, match="unknown code"):
+        ds("ch_fso_cpi", item="nope")

@@ -1,4 +1,7 @@
+import io
 import json
+import urllib.error
+import urllib.request
 
 import pytest
 
@@ -84,35 +87,78 @@ null,A,2020-01-01,4.5
 01,A,2020-01-01,5.5
 """
 
-ERROR_CSV = "error\nunknown dataset\n"
+# Real API error responses: (status, body).
+UNKNOWN_DATASET = (404, "error\nmissing or unknown dataset\n")
+UNKNOWN_DIM = (
+    400,
+    'error\n"unknown dimension ""nope"" for dataset ch_fso_cpi. '
+    'Valid dimensions: item"\n',
+)
+UNKNOWN_CODE = (
+    400,
+    'error\n"unknown code ""nope"" for dimension ""item"". '
+    'Valid codes: ' + ", ".join(f"100_{i}" for i in range(100)) + '"\n',
+)
+UNKNOWN_DATASET_META = (200, '{"error":"unknown dataset"}')
+
+
+class _Resp:
+    def __init__(self, body):
+        self._body = body.encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self._body
 
 
 @pytest.fixture
 def fake_api(monkeypatch):
-    """Serve canned API responses and record requested paths."""
+    """Serve canned API responses (errors included) and record requested paths."""
     requested = []
 
-    def fetch(path):
-        requested.append(path)
+    def respond(path):
         if path == "/catalog":
-            return json.dumps(CATALOG)
+            return 200, json.dumps(CATALOG)
         if path == "/search-index.json":
-            return json.dumps(SEARCH_INDEX)
+            return 200, json.dumps(SEARCH_INDEX)
         if path == "/dataset/ch_seco_gdp/meta":
-            return json.dumps(META)
+            return 200, json.dumps(META)
         if path.startswith("/dataset/"):
-            return json.dumps({"error": "unknown dataset"})
+            return UNKNOWN_DATASET_META
         if path.startswith("/series.csv"):
             if "dataset=nope" in path:
-                return ERROR_CSV
+                return UNKNOWN_DATASET
+            if "dims=nope" in path:
+                return UNKNOWN_DIM
+            if "item%3Dnope" in path:
+                return UNKNOWN_CODE
+            if "dataset=ch_down" in path:
+                return 503, "Service Unavailable"
             if "dataset=ch_na_code" in path:
-                return SERIES_CSV_NA
+                return 200, SERIES_CSV_NA
             if "dataset=ch_kof_barometer" in path:
-                return SERIES_CSV_NODIM
-            return SERIES_CSV
+                return 200, SERIES_CSV_NODIM
+            if "from=2099" in path:
+                return 200, "item,date,value\n"
+            return 200, SERIES_CSV
         raise AssertionError(f"unexpected path {path}")
 
-    monkeypatch.setattr(_api, "_fetch", fetch)
+    def urlopen(req, timeout=None):
+        path = req.full_url[len(_api.api_url()):]
+        requested.append(path)
+        status, body = respond(path)
+        if status >= 400:
+            raise urllib.error.HTTPError(
+                req.full_url, status, "error", {}, io.BytesIO(body.encode("utf-8"))
+            )
+        return _Resp(body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
     _api.cache_clear()
     yield requested
     _api.cache_clear()

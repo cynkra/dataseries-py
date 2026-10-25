@@ -7,6 +7,7 @@ for the lifetime of the Python process, so repeated calls are free. Use
 
 from __future__ import annotations
 
+import csv
 import io
 import json
 import os
@@ -29,12 +30,43 @@ def api_url() -> str:
     return os.environ.get("DATASERIES_API", "https://api.dataseries.org").rstrip("/")
 
 
+def _error_message(body: str) -> str:
+    """Extract the message from an API error body.
+
+    The API reports errors either as a one-column CSV (``error`` header, the
+    message on the next line) or as JSON (``{"error": "..."}``).
+    """
+    body = body.strip()
+    if body.startswith("{"):
+        try:
+            msg = json.loads(body).get("error")
+            if msg:
+                return str(msg)
+        except (ValueError, AttributeError):
+            pass
+    rows = list(csv.reader(io.StringIO(body)))
+    if len(rows) >= 2 and rows[0] == ["error"] and rows[1]:
+        return rows[1][0]
+    return body
+
+
 def _fetch(path: str) -> str:
     url = api_url() + path
     req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             return resp.read().decode("utf-8")
+    except urllib.error.HTTPError as err:
+        # HTTPError is a URLError: 4xx means the request was wrong, not the network.
+        if err.code < 500:
+            try:
+                body = err.read().decode("utf-8", "replace")
+            except OSError:
+                body = ""
+            raise ValueError(_error_message(body) or f"HTTP {err.code}") from err
+        raise ConnectionError(
+            f"could not reach the dataseries.org API ({url}): {err}"
+        ) from err
     except (urllib.error.URLError, OSError) as err:
         raise ConnectionError(
             f"could not reach the dataseries.org API ({url}): {err}"
