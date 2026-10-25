@@ -74,6 +74,16 @@ SERIES_CSV_NODIM = """date,value
 2020-04-01,1.7
 """
 
+# Dimension codes that look like missing values must survive verbatim.
+SERIES_CSV_NA = """D0,D1,date,value
+NA,A,2020-01-01,1.5
+NA,A,2020-04-01,
+S,A,2020-01-01,2.5
+N/A,A,2020-01-01,3.5
+null,A,2020-01-01,4.5
+01,A,2020-01-01,5.5
+"""
+
 ERROR_CSV = "error\nunknown dataset\n"
 
 
@@ -95,6 +105,8 @@ def fake_api(monkeypatch):
         if path.startswith("/series.csv"):
             if "dataset=nope" in path:
                 return ERROR_CSV
+            if "dataset=ch_na_code" in path:
+                return SERIES_CSV_NA
             if "dataset=ch_kof_barometer" in path:
                 return SERIES_CSV_NODIM
             return SERIES_CSV

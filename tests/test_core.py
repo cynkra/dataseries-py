@@ -17,6 +17,10 @@ class TestBuildDims:
         spec = _build_dims({"item": ["100_100", "100_1"], "type": "real"})
         assert spec == "item=100_100,100_1;type=real"
 
+    def test_non_string_codes_are_stringified(self):
+        assert _build_dims({"item": 100}) == "item=100"
+        assert _build_dims({"item": [100, "101"]}) == "item=100,101"
+
 
 class TestDs:
     def test_long_format(self, fake_api):
@@ -33,6 +37,10 @@ class TestDs:
             "/series.csv?dataset=ch_fso_cpi&dims=item%3D100_100%2C100_1"
             "&from=2020-01-01"
         )
+
+    def test_integer_code_in_query(self, fake_api):
+        ds("ch_fso_cpi", item=100)
+        assert "dims=item%3D100" in fake_api[-1]
 
     def test_dims_dict_equivalent_to_kwargs(self, fake_api):
         a = ds("ch_fso_cpi", {"item": "100_100"})
@@ -54,6 +62,19 @@ class TestDs:
         w = ds("ch_kof_barometer", wide=True)
         assert list(w.columns) == ["value"]
         assert len(w) == 2
+
+    def test_na_code_long(self, fake_api):
+        df = ds("ch_na_code", D1="A")
+        assert set(df["D0"]) == {"NA", "S", "N/A", "null", "01"}
+        assert df["D0"].notna().all()
+        assert df["D1"].notna().all()
+        assert df["value"].isna().sum() == 1  # only the empty value is missing
+
+    def test_na_code_wide(self, fake_api):
+        w = ds("ch_na_code", wide=True)
+        assert set(w.columns) == {"NA.A", "S.A", "N/A.A", "null.A", "01.A"}
+        assert w.loc["2020-01-01", "NA.A"] == 1.5
+        assert pd.isna(w.loc["2020-04-01", "NA.A"])
 
     def test_api_error_csv_raises(self, fake_api):
         with pytest.raises(ValueError, match="unknown dataset"):
